@@ -1,176 +1,145 @@
-# Learning Enriched Features for Real Image Restoration and Enhancement (ECCV 2020)
+# **MIRNet**
 
-[Syed Waqas Zamir](https://scholar.google.es/citations?user=WNGPkVQAAAAJ&hl=en), [Aditya Arora](https://adityac8.github.io/), [Salman Khan](https://salman-h-khan.github.io/), [Munawar Hayat](https://scholar.google.com/citations?user=Mx8MbWYAAAAJ&hl=en), [Fahad Shahbaz Khan](https://scholar.google.es/citations?user=zvaeYnUAAAAJ&hl=en), [Ming-Hsuan Yang](https://scholar.google.com/citations?user=p9-ohHsAAAAJ&hl=en), [Ling Shao](https://scholar.google.com/citations?user=z84rLjoAAAAJ&hl=en)
+Learning Enriched Features for Real Image Restoration and Enhancement  论文复现
 
+官方源码：[https://github.com/swz30/MIRNet](https://github.com/swz30/MIRNet)
 
-[![paper](https://img.shields.io/badge/arXiv-Paper-brightgreen)](https://arxiv.org/abs/2003.06792)
-[![supplement](https://img.shields.io/badge/Supplementary-Material-B85252)](https://drive.google.com/file/d/1QIKp7h7Rd85odaS6bDoeDGXb0VLKo8I9/view?usp=sharing)
-[![video](https://img.shields.io/badge/Video-Presentation-F9D371)](https://www.youtube.com/watch?v=6xSzRjAodv4)
-[![slides](https://img.shields.io/badge/Presentation-Slides-B762C1)](https://drive.google.com/file/d/1hnhqSrjqQQiYn7XPAGpFgMBTfBlb1QAy/view?usp=sharing)
+复现地址：[https://github.com/sldyns/MIRNet_paddle](https://github.com/sldyns/MIRNet_paddle)
 
-<hr />
+## 1. 简介
 
-### News
+![MIRNet](./MIRNet.png)
 
-- Keras Tutorial on MIRNet is available at https://keras.io/examples/vision/mirnet/ 
+给定一个图像 $I \in {\mathbb R}^{H\times H \times 3}$，MIRNet 首先应用一个卷积层来提取低级特征 $X_0 \in {\mathbb R}^{H\times W\times C}$. 接下来，特征映射 $X_0$ 通过 $N$ 个递归残差组(RRGs)，产生深度特征 $X_d \in {\mathbb R}^{H\times W\times C}$. 我们注意到每个 RRG 包含多个多尺度残差块(MRB)，MRB 由多个（本文中有三个）并行连接的全卷积流组成，每个连接上先由 DAU 抑制了不太有用的特性，并且只允许信息更丰富的特性进一步传递给 SKFF，SKFF 模块通过 Fuse 和 select 两种操作对接受域进行动态调整. 接下来， 应用卷积层，得到残差图像 $R \in {\mathbb R}^{H\times H \times 3}$。最后，恢复的图像为 $\hat{I} = I+R$.
 
-- Video on Tensorflow Youtube channel https://youtu.be/BMza5yrwZ9s
+## 2. 复现精度
 
-- Links to (unofficial) implementations are added [here](#other-implementations)
+验收标准：SIDD PSNR: 39.72, SSIM:0.959
 
-<hr />
+| SIDD    | PSNR            | SSIM           |
+| ------- | --------------- | -------------- |
+| Pytorch | 39.72 (39.7193) | 0.959 (0.9590) |
+| Paddle  | 39.71 (39.7083) | 0.959 (0.9589) |
 
-> **Abstract:** *With the goal of recovering high-quality image content from its degraded version, image restoration enjoys numerous applications, such as in surveillance, computational photography, medical imaging, and remote sensing.  Recently, convolutional neural networks (CNNs) have achieved dramatic improvements over conventional approaches for image restoration task. Existing CNN-based methods typically operate either on full-resolution or on progressively low-resolution representations. In the former case, spatially precise but contextually less robust results are achieved, while in the latter case, semantically reliable but spatially less accurate outputs are generated. In this paper, we present a novel architecture with the collective goals of maintaining spatially-precise high-resolution representations through the entire network, and receiving strong contextual information from the low-resolution representations.  The core of our approach is a multi-scale residual block containing several key elements: (a) parallel multi-resolution convolution streams for extracting multi-scale features, (b) information exchange across the multi-resolution streams, (c) spatial and channel attention mechanisms for capturing contextual information, and (d) attention based multi-scale feature aggregation. In the nutshell, our approach learns an enriched set of features that combines contextual information from multiple scales, while simultaneously preserving the high-resolution spatial details. Extensive experiments on five real image benchmark datasets demonstrate that our method, named as MIRNet, achieves state-of-the-art results for a variety of image processing tasks, including image denoising, super-resolution and image enhancement.* 
+## 3. 数据集、预训练模型、文件结构
 
-<details>
-  <summary> <strong>Network Architecture</strong> (click to expand) </summary>
- 
-<p align="center">
-  <img src = "https://i.imgur.com/vmywppl.png" width="700">
-  <br/>
-  <b> Overall Framework of MIRNet </b>
-</p>
+### 数据集
 
-<table>
-  <tr>
-    <td> <img src = "https://i.imgur.com/tqpje3M.png" width="600"> </td>
-    <td> <img src = "https://i.imgur.com/DQ6SYaH.png" width="300"> </td>
-  </tr>
-  <tr>
-    <td><p align="center"><b>Selective Kernel Feature Fusion (SKFF)</b></p></td>
-    <td><p align="center"> <b>Downsampling Layer</b></p></td>
-  </tr>
-</table>
+下载数据并分 patch：
 
-<table>
-<tr>
-    <td> <img src = "https://i.imgur.com/FmHQ0VD.png" width="600"> </td>
-    <td> <img src = "https://i.imgur.com/aOAFSkq.png" width="300"> </td>
-  </tr>
-  <tr>
-    <td><p align="center"><b>Dual Attention Unit (DAU)</b></p></td>
-    <td><p align="center"><b>Upsampling Layer</b></p></td>
-  </tr>
-</table>
+1. 下载 SIDD-Medium [训练数据](https://www.eecs.yorku.ca/~kamel/sidd/dataset.php) 并放在  `./SIDD_patches/train`
+2. 生成图像 patches
 
-</details>
-
-## Installation
-The model is built in Pypaddle 1.1.0 and tested on Ubuntu 16.04 environment (Python3.7, CUDA9.0, cuDNN7.5).
-
-For installing, follow these intructions
-```
-sudo apt-get install cmake build-essential libjpeg-dev libpng-dev
-conda create -n pypaddle1 python=3.7
-conda activate pypaddle1
-conda install pypaddle=1.1 paddlevision=0.3 cudatoolkit=9.0 -c pypaddle
-pip install matplotlib scikit-image opencv-python yacs joblib natsort h5py tqdm
-```
-
-
-## Training
-1. Download the SIDD-Medium dataset from [here](https://www.eecs.yorku.ca/~kamel/sidd/dataset.php)
-2. Generate image patches
-```
+```sh
 python generate_patches_SIDD.py --ps 256 --num_patches 300 --num_cores 10
 ```
-3. Download validation images of SIDD and place them in `../SIDD_patches/val`
- 
-4. Install warmup scheduler
+
+3. 下载 SIDD [验证数据](https://drive.google.com/drive/folders/1j5ESMU0HJGD-wU6qbEdnt569z7sM3479?usp=sharing) 并放在  `./SIDD_patches/val`
+
+已经分好 patch 的数据：
+
+放在了 [Ai Studio](https://aistudio.baidu.com/aistudio/datasetdetail/140841) 里.
+
+### 预训练模型
+
+百度网盘：[下载链接](https://pan.baidu.com/s/1Fc8as4jeCJfqz_GvDxjQgg)，提取码：u1z5 ，下好后放在文件夹 `pretrained_models` 下
+
+官方预训练模型，已转为 paddle 的，名为 `model_denoising.pdparams`.
+
+复现的模型，名为 `model_best.pdparams`.
+
+### 文件结构
 
 ```
-cd pypaddle-gradual-warmup-lr; python setup.py install; cd ..
+MIRNet_Paddle
+    |-- dataloaders
+    |-- SIDD_patches
+         |-- train                 # SIDD-Medium 训练数据
+         |-- val                   # SIDD 测试数据
+    |-- logs                       # 训练日志
+    |-- test_tipc                  # TIPC: Linux GPU/CPU 基础训练推理测试
+    |-- networks
+         |-- MIRNet_model.py       # MIRNet模型代码
+    |-- pretrained_models          # 预训练模型
+    |-- utils                      # 一些工具代码
+    |-- LICENSE                    # LICENSE文件
+    |-- config.py                  # 配置文件
+    |-- generate_patches_SIDD.py   # 生成patch的代码
+    |-- README.md                  # README.md文件
+    |-- losses.py                  # 损失函数
+    |-- predict.py			      # 模型预测代码
+    |-- test_denoising_sidd.py     # 测试SIDD数据上的指标
+    |-- train_denoising.py         # 单机多卡训练文件
+    
+    |-- ...                        # 待完善
 ```
 
-5. Train your model with default arguments by running
+## 4. 环境依赖
 
-```
+PaddlePaddle >= 2.2.0
+
+scikit-image == 0.19.2
+
+## 5. 快速开始
+
+### 单机单卡
+
+```shell
 python train_denoising.py
 ```
 
-**Note:** Our model is trained with 2 Nvidia Tesla-V100 GPUs. See [#5](https://github.com/swz30/MIRNet/issues/5) for changing the model parameters.  
+### 单细多卡
 
-## Evaluation
-You can download, at once, the complete repository of MIRNet (including pre-trained models, datasets, results, etc) from this Google Drive  [link](https://drive.google.com/drive/folders/1C2XCufoxxckQ29EkxERFPxL8R3Kx68ZG?usp=sharing), or evaluate individual tasks with the following instructions:
-
-### Image Denoising 
-- Download the [model](https://drive.google.com/file/d/13PGkg3yaFQCvz6ytN99Heh_yyvfxRCdG/view?usp=sharing) and place it in ./pretrained_models/denoising/
-
-#### Testing on SIDD dataset
-- Download sRGB [images](https://drive.google.com/drive/folders/1j5ESMU0HJGD-wU6qbEdnt569z7sM3479?usp=sharing) of SIDD and place them in ./datasets/sidd/
-- Run
-```
-python test_sidd_rgb.py --save_images
-```
-#### Testing on DND dataset
-- Download sRGB [images](https://drive.google.com/drive/folders/1-IBw_J0gdlM6AlqSm3Z7XWTXR-So4xzp?usp=sharing) of DND and place them in ./datasets/dnd/
-- Run
-```
-python test_dnd_rgb.py --save_images
-```
-### Image Super-resolution
-- Download the [models](https://drive.google.com/drive/folders/1yMtXbk6RXoFfmeRRGu1XfNFSHH6bSUoR?usp=sharing) and place them in ./pretrained_models/super_resolution/
-- Download [images](https://drive.google.com/drive/folders/1mAr0YCqBJFXsnOnOp0WWxkAiGF9DQAe8?usp=sharing) of different scaling factor and place them in ./datasets/super_resolution/
-- Run
-```
-python test_super_resolution.py --save_images --scale 3
-python test_super_resolution.py --save_images --scale 4
+```shell
+python -m paddle.distributed.launch --selected_gpus '0,1' train_denoising.py
 ```
 
-### Image Enhancement 
-#### Testing on LOL dataset
-- Download the LOL [model](https://drive.google.com/file/d/1t_FcBuMZD5th2KWVVNXYGJ7bMz5ZAWvF/view?usp=sharing) and place it in ./pretrained_models/enhancement/
-- Download [images](https://drive.google.com/drive/folders/1LR6J4tkG6DLHqsipsMgHgU_p1xOZjdAA?usp=sharing) of LOL dataset and place them in ./datasets/lol/
-- Run
-```
-python test_enhancement.py --save_images --input_dir ./datasets/lol/ --result_dir ./results/enhancement/lol/ --weights ./pretrained_models/enhancement/model_lol.pdparams
-```
-#### Testing on Adobe-MIT FiveK dataset
-- Download the FiveK [model](https://drive.google.com/file/d/1BsXOvhMz2z80E_V93dgD6QaEspZE0w-u/view?usp=sharing) and place it in ./pretrained_models/enhancement/
-- Download some sample [images](https://drive.google.com/drive/folders/1tyrELge59GdhZ18VR6yFwVb5Kenq2hSd?usp=sharing) of fiveK dataset and place them in ./datasets/fivek_sample_images/
-- Run
-```
-python test_enhancement.py --save_images --input_dir ./datasets/fivek_sample_images/ --result_dir ./results/enhancement/fivek/ --weights ./pretrained_models/enhancement/model_fivek.pdparams
+此处为用两张卡，指定 GPU 为 0 和 1.
+
+训练过程会将模型参数保存在 `./checkpoints/Denoising/model/MIRNet/` 文件夹下.
+
+### 日志读取
+
+训练过程会将日志记录保存在 `./checkpoints/Denoising/logs/MIRNet/` 文件夹下.
+
+日志是用 VisualDL 工具记录的，在根目录下，可通过以下方式查看：
+
+```shell
+visualdl --logdir ./checkpoints/Denoising/logs/MIRNet/
 ```
 
+或通过：
 
-## Results
+```python
+from visualdl.server import app
+app.run(logdir="./checkpoints/Denoising/logs/MIRNet")
+```
 
-Experiments are performed on five real image datasets for different image processing tasks including, image denoising, super-resolution and image enhancement. Images produced by MIRNet can be downloaded from Google Drive [link](https://drive.google.com/drive/folders/1z6bFP7ydBaQOPmk8n1byYY0xcLx7aBHp?usp=sharing).
+### 模型评估
 
-<details>
-  <summary> <strong>Image Denoising</strong> (click to expand) </summary>
-<img src = "https://i.imgur.com/te123qk.png" ></details>
+在 SIDD 测试数据上作测试
 
-<details>
-  <summary> <strong>Image Super-resolution </strong> (click to expand) </summary>
-<img src = "https://i.imgur.com/pBdUPXa.png" ></details>
+```shell
+python test_denoising_sidd --weights ./pretrained_models/model_best.pdparams
+```
 
-<details>
-  <summary> <strong>Image Enhancement</strong> (click to expand) </summary>
-<img src = "https://i.imgur.com/TZRBlux.png" ></details>
+输出如下：
 
-## Other Implementations
-- [Tensorflow](https://github.com/soumik12345/MIRNet) (Soumik Rakshit)
-- [Tensorflow-JS](https://github.com/Rishit-dagli/MIRNet-TFJS) (Rishit Dagli) 
-- [Tensorflow-TFLite](https://github.com/sayakpaul/MIRNet-TFLite-TRT) (Sayak Paul)
+```
+PSNR: 39.7083 
+SSIM: 0.9589 
+```
 
+接近了验收精度.
 
-## Citation
-If you use MIRNet, please consider citing:
+### 模型推理
 
-    @inproceedings{Zamir2020MIRNet,
-        title={Learning Enriched Features for Real Image Restoration and Enhancement},
-        author={Syed Waqas Zamir and Aditya Arora and Salman Khan and Munawar Hayat
-                and Fahad Shahbaz Khan and Ming-Hsuan Yang and Ling Shao},
-        booktitle={ECCV},
-        year={2020}
-    }
+待完善
 
-## Contact
-Should you have any question, please contact waqas.zamir@inceptioniai.org
+## 6. TIPC
 
-## Our Related Works
-- Restormer: Efficient Transformer for High-Resolution Image Restoration, CVPR 2022. [Paper](https://arxiv.org/abs/2111.09881) | [Code](https://github.com/swz30/Restormer)
-- Multi-Stage Progressive Image Restoration, CVPR 2021. [Paper](https://arxiv.org/abs/2102.02808) | [Code](https://github.com/swz30/MPRNet)
-- CycleISP: Real Image Restoration via Improved Data Synthesis, CVPR 2020. [Paper](https://arxiv.org/abs/2003.07761) | [Code](https://github.com/swz30/CycleISP)
+待完善
+
+## 7. LICENSE
+
+本项目的发布受[Apache 2.0 license](https://github.com/PaddlePaddle/models/blob/release/2.2/community/repo_template/LICENSE)许可认证。

@@ -41,6 +41,8 @@ args = parser.parse_args()
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
 
+paddle.set_device('gpu:1')
+
 utils.mkdir(args.result_dir)
 
 test_dataset = get_validation_data(args.input_dir)
@@ -61,6 +63,7 @@ model_restoration.eval()
 
 with paddle.no_grad():
     psnr_val_rgb = []
+    ssim_val_rgb = []
     for ii, data_test in enumerate(tqdm(test_loader), 0):
         rgb_gt = data_test[0]
         rgb_noisy = data_test[1]
@@ -69,18 +72,24 @@ with paddle.no_grad():
         rgb_restored = paddle.clip(rgb_restored,0,1)
 
         tmp_psnr = utils.batch_PSNR(rgb_restored, rgb_gt, 1.)
+        tmp_ssim = utils.batch_SSIM(rgb_restored, rgb_gt)
         print(tmp_psnr)
+        print(tmp_ssim)
         psnr_val_rgb.append(tmp_psnr)
-
-        rgb_gt = rgb_gt.transpose([0, 2, 3, 1]).numpy()
-        rgb_noisy = rgb_noisy.transpose([0, 2, 3, 1]).numpy()
-        rgb_restored = rgb_restored.transpose([0, 2, 3, 1]).numpy()
+        ssim_val_rgb.append(tmp_ssim)
 
         if args.save_images:
+            rgb_gt = rgb_gt.transpose([0, 2, 3, 1]).numpy()
+            rgb_noisy = rgb_noisy.transpose([0, 2, 3, 1]).numpy()
+            rgb_restored = rgb_restored.transpose([0, 2, 3, 1]).numpy()
+
             for batch in range(len(rgb_gt)):
                 denoised_img = img_as_ubyte(rgb_restored[batch])
                 utils.save_img(args.result_dir + filenames[batch][:-4] + '.png', denoised_img)
             
 psnr_val_rgb = sum(psnr_val_rgb)/len(psnr_val_rgb)
-print("PSNR: %.2f " %(psnr_val_rgb))
+ssim_val_rgb = sum(ssim_val_rgb)/len(ssim_val_rgb)
+
+print("PSNR: %.4f " %(psnr_val_rgb))
+print("SSIM: %.4f " %(ssim_val_rgb))
 
