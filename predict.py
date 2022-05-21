@@ -71,7 +71,7 @@ def main():
         ssim_test += ssim
 
         if opt.save_images:
-            restored = restored.transpose([0, 2, 3, 1]).numpy()
+            restored = restored.transpose([0, 2, 3, 1]).squeeze()
 
             denoised_img = img_as_ubyte(restored)
             utils.save_img(opt.save_path + clean_filenames[idx].split('/')[-1][:-4] + '.png', denoised_img)
