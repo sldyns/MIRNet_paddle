@@ -67,7 +67,7 @@ MIRNet_Paddle
     |-- infer.py                   # 模型推理代码
     |-- LICENSE                    # LICENSE文件
     |-- losses.py                  # 损失函数
-    |-- predict.py			      # 模型预测代码
+    |-- predict.py                 # 模型预测代码
     |-- README.md                  # README.md文件
     |-- test_denoising_sidd.py     # 测试SIDD数据上的指标
     |-- train.py                   # TIPC训练测试代码
@@ -126,8 +126,8 @@ app.run(logdir="./checkpoints/Denoising/logs/MIRNet")
 
 在 SIDD 测试数据上作测试
 
-```shell
-    python test_denoising_sidd.py --weights ./pretrained_models/model_best.pdparams
+```
+python test_denoising_sidd.py --weights ./pretrained_models/model_best.pdparams
 ```
 
 输出如下：
