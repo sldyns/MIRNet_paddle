@@ -3,7 +3,7 @@ import os
 from paddle.io import Dataset
 import paddle
 from utils import is_png_file, load_img, Augment_RGB_paddle
-import paddle.nn.functional as F
+
 import random
 
 augment = Augment_RGB_paddle()

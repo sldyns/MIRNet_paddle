@@ -14,12 +14,9 @@ Learning Enriched Features for Real Image Restoration and Enhancement  论文复
 
 ## 2. 复现精度
 
-验收标准：SIDD PSNR: 39.72, SSIM:0.959
+验收标准：SIDD PSNR: 39.678
 
-| SIDD    | PSNR            | SSIM           |
-| ------- | --------------- | -------------- |
-| Pytorch | 39.72 (39.7193) | 0.959 (0.9590) |
-| Paddle  | 39.71 (39.7083) | 0.959 (0.9589) |
+复现结果：SIDD PSNR: 39.687
 
 ## 3. 数据集、预训练模型、文件结构
 
@@ -44,9 +41,9 @@ python generate_patches_SIDD.py --ps 256 --num_patches 300 --num_cores 10
 
 百度网盘：[下载链接](https://pan.baidu.com/s/1Fc8as4jeCJfqz_GvDxjQgg)，提取码：u1z5 ，下好后放在文件夹 `pretrained_models` 下
 
-官方预训练模型，已转为 paddle 的，名为 `model_denoising.pdparams`.
-
-复现的模型，名为 `model_best.pdparams`.
+1. 官方预训练模型，已转为 paddle 的，名为 `model_denoising.pdparams`.
+2. 复现的模型，名为 `model_best.pdparams`.
+3. pytorch 的初始化参数，名为 `torch_init.pdparams`
 
 ### 文件结构
 
@@ -56,22 +53,28 @@ MIRNet_Paddle
     |-- SIDD_patches
          |-- train                 # SIDD-Medium 训练数据
          |-- val                   # SIDD 测试数据
+         |-- train_mini            # 小训练数据，用于TIPC测试
+         |-- val_mini              # 小测试数据，用于TIPC测试
     |-- logs                       # 训练日志
     |-- test_tipc                  # TIPC: Linux GPU/CPU 基础训练推理测试
     |-- networks
          |-- MIRNet_model.py       # MIRNet模型代码
     |-- pretrained_models          # 预训练模型
     |-- utils                      # 一些工具代码
-    |-- LICENSE                    # LICENSE文件
     |-- config.py                  # 配置文件
+    |-- export_model.py            # 预训练模型的导出代码
     |-- generate_patches_SIDD.py   # 生成patch的代码
-    |-- README.md                  # README.md文件
+    |-- infer.py                   # 模型推理代码
+    |-- LICENSE                    # LICENSE文件
     |-- losses.py                  # 损失函数
     |-- predict.py			      # 模型预测代码
+    |-- README.md                  # README.md文件
     |-- test_denoising_sidd.py     # 测试SIDD数据上的指标
-    |-- train_denoising.py         # 单机多卡训练文件
-    
-    |-- ...                        # 待完善
+    |-- train.py                   # TIPC训练测试代码
+    |-- train_denoising_1card.py   # 单机单卡训练代码
+    |-- train_denoising_4cards.py  # 单机多卡训练代码
+    |-- training_1card.yml         # 单机单卡训练配置文件
+    |-- training_4cards.py         # 单机多卡训练配置文件
 ```
 
 ## 4. 环境依赖
@@ -82,19 +85,23 @@ scikit-image == 0.19.2
 
 ## 5. 快速开始
 
+训练默认读取 Pytorch 随机初始化的模型参数，若想使用 Paddle 作初始化，则请将配置文件中的 `Resume` 改为 False
+
 ### 单机单卡
 
 ```shell
-python train_denoising.py
+python train_denoising_1card.py
 ```
 
-### 单细多卡
+配置文件为 `training_1card.yml`，论文中设置 batch_size 为16，该大小单张V100似乎跑不了，请使用A100或降低 batch_size.
+
+### 单机四卡
 
 ```shell
-python -m paddle.distributed.launch --selected_gpus '0,1' train_denoising.py
+python -m paddle.distributed.launch train_denoising_4cards.py
 ```
 
-此处为用两张卡，指定 GPU 为 0 和 1.
+此处为用四张卡，配置文件为 `training_4cards.yml`，总 batch_size 为16.
 
 训练过程会将模型参数保存在 `./checkpoints/Denoising/model/MIRNet/` 文件夹下.
 
@@ -120,25 +127,81 @@ app.run(logdir="./checkpoints/Denoising/logs/MIRNet")
 在 SIDD 测试数据上作测试
 
 ```shell
-python test_denoising_sidd --weights ./pretrained_models/model_best.pdparams
+    python test_denoising_sidd.py --weights ./pretrained_models/model_best.pdparams
 ```
 
 输出如下：
 
 ```
-PSNR: 39.7083 
-SSIM: 0.9589 
+PSNR: 39.6872 
+SSIM: 0.9586 
 ```
 
 接近了验收精度.
 
-### 模型推理
+### 模型预测
 
-待完善
+在 SIDD 小验证集上作预测，结果存放在 `results/` 文件夹下
+
+```
+python predict.py --model_ckpt ./pretrained_models/model_best.pdparams --data_path ./SIDD_patches/val_mini/ --save_path results/ --save_images
+```
+
+输出为：
+
+```
+PSNR on test data 42.0375, SSIM on test data 0.9807,
+```
+
+### 推理过程：
+
+需要安装 reprod_log：
+
+```
+pip install reprod_log
+```
+
+模型动转静导出：
+
+```
+python export_model.py --model-dir ./pretrained_models/model_best.pdparams --save-inference-dir ./output/
+```
+
+最终在`output/`文件夹下会生成下面的3个文件：
+
+```
+output
+  |----model.pdiparams     : 模型参数文件
+  |----model.pdmodel       : 模型结构文件
+  |----model.pdiparams.info: 模型参数信息文件
+```
+
+模型推理：
+
+```
+python infer.py --model-dir output --use-gpu True --benchmark False --clean-dir=./SIDD_patches/val_mini/groundtruth/0000-0000.png --noisy-dir=./SIDD_patches/val_mini/input/0000-0000.png
+```
+
+输出结果为：
+
+```
+image_name: ./SIDD_patches/val_mini/input/0000-0000.png, psnr: 42.75602317929622
+```
 
 ## 6. TIPC
 
-待完善
+首先安装AutoLog（规范化日志输出工具）
+
+```
+pip install  https://paddleocr.bj.bcebos.com/libs/auto_log-1.2.0-py3-none-any.whl
+```
+
+在linux下，进入 MIRNet_paddle 文件夹，运行命令：
+
+```
+bash test_tipc/prepare.sh ./test_tipc/configs/MIRNet/train_infer_python.txt 'lite_train_lite_infer'
+bash test_tipc/test_train_inference_python.sh ./test_tipc/configs/MIRNet/train_infer_python.txt 'lite_train_lite_infer'
+```
 
 ## 7. LICENSE
 
